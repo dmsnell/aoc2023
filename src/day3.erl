@@ -17,11 +17,11 @@ input_type() -> raw.
 %% .664.598..
 
 p1(Input) ->
-  {FirstLine, AfterFirst} = next_line(Input),
-  Cols                    = size(FirstLine),
-  PaddingLine             = <<<<".">> || _ <- lists:seq(1, Cols)>>,
-  {SecondLine, Rest}      = next_line(AfterFirst),
-  line({PaddingLine, FirstLine, SecondLine}, <<Rest/binary, PaddingLine/binary>>, 0).
+  {This, Lines} = next_line(Input),
+  Cols          = size(This),
+  Padding       = <<<<".">> || _ <- lists:seq(1, Cols)>>,
+  {Next, Rest}  = next_line(Lines),
+  line({Padding, This, Next}, <<Rest/binary, Padding/binary>>, 0).
 
 
 line({_, This, _} = Region, <<>>, Sum) ->
@@ -77,7 +77,6 @@ is_symbol(A) -> A =/= $. andalso (A < $0 orelse A > $9).
 next_line(Input) ->
   case binary:split(Input, <<"\n">>) of
     [Line]           -> {pad(Line), <<>>};
-    [Line, <<"\n">>] -> {pad(Line), <<>>};
     [Line, Rest]     -> {pad(Line), Rest}
   end.
 
@@ -102,43 +101,28 @@ next_number(<<_, _Rest/binary>>, _At, {Start, Length}, Digits) ->
   {N, {Start, Length}}.
 
 p2(Input) ->
-  {FirstLine, AfterFirst} = next_line(Input),
-  Cols                    = size(FirstLine),
-  PaddingLine             = <<<<".">> || _ <- lists:seq(1, Cols)>>,
-  {SecondLine, Rest}      = next_line(AfterFirst),
-  Above = [],
-  Inline = all_numbers(FirstLine),
-  Below = all_numbers(SecondLine),
-  gears(
-    {FirstLine, SecondLine},
-    {Above, Inline, Below},
-    <<Rest/binary, PaddingLine/binary>>,
-    0
-  ).
+  {This, Lines} = next_line(Input),
+  {Next, Rest}  = next_line(Lines),
+  Cols          = size(This),
+  Padding       = <<<<".">> || _ <- lists:seq(1, Cols)>>,
+  Inline = all_numbers(This),
+  Below = all_numbers(Next),
+  gears({This, Next}, {[], Inline, Below}, <<Rest/binary, Padding/binary>>, 0).
 
 
 gears({This, _}, {Above, Inline, Below}, <<>>, Sum) ->
   case all_gears(This) of
-    [] ->
-      Sum;
-
-    Gears ->
-      LineSum          = gear_ratios(Gears, [Above, Inline, Below]),
-      Sum + LineSum
+    []    -> Sum;
+    Gears -> Sum + gear_ratios(Gears, [Above, Inline, Below])
   end;
 gears({This, Next}, {Above, Inline, Below}, Lines, Sum) ->
-  case all_gears(This) of
-    [] ->
-      {UberNext, Rest} = next_line(Lines),
-      UberBelow        = all_numbers(UberNext),
-      gears({Next, UberNext}, {Inline, Below, UberBelow}, Rest, Sum);
-
-    Gears ->
-      LineSum          = gear_ratios(Gears, [Above, Inline, Below]),
-      {UberNext, Rest} = next_line(Lines),
-      UberBelow        = all_numbers(UberNext),
-      gears({Next, UberNext}, {Inline, Below, UberBelow}, Rest, Sum + LineSum)
-  end.
+  {UberNext, Rest} = next_line(Lines),
+  UberBelow        = all_numbers(UberNext),
+  LineSum = case all_gears(This) of
+    []    -> 0;
+    Gears -> gear_ratios(Gears, [Above, Inline, Below])
+  end,
+  gears({Next, UberNext}, {Inline, Below, UberBelow}, Rest, Sum + LineSum).
 
 gear_ratios(Gears, Numbers) ->
   lists:sum(
@@ -162,8 +146,6 @@ gear_ratio(Gear, [Before | Numbers], Matches) ->
 
 gear_matches(_Gear, _Numbers, [_, _, _]) ->
   false;
-gear_matches(_Gear, [], [A, B]) ->
-  [A, B];
 gear_matches(_Gear, [], Matches) ->
   Matches;
 gear_matches(Gear, [{_, {At, _}} | _], Matches) when Gear < At - 1 ->
@@ -174,10 +156,11 @@ gear_matches(Gear, [{N, {At, Length}} | Numbers], Matches) ->
       At == Gear orelse
       At == Gear + 1
   ),
-  case Overlaps of
-    true  -> gear_matches(Gear, Numbers, [N | Matches]);
-    false -> gear_matches(Gear, Numbers, Matches)
-  end.
+  NextMatches = case Overlaps of
+    true  -> [N | Matches];
+    false -> Matches
+  end,
+  gear_matches(Gear, Numbers, NextMatches).
 
 
 all_gears(Line) ->
