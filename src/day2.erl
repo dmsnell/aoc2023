@@ -1,7 +1,7 @@
 -module(day2).
 -behavior(aoc).
 
--export([input_type/0, parse_input/1, p1/1]).
+-export([input_type/0, parse_input/1, p1/1, p2/1]).
 
 input_type() -> lines.
 
@@ -48,6 +48,22 @@ p1(Games) ->
   ),
   lists:sum(maps:keys(Possible)).
 
+p2(Games) ->
+  Powers = maps:map(
+    fun (_GameId, Rounds) ->
+      {R, G, B} = lists:foldl(
+        fun (#{red := R, green := G, blue := B}, {MR, MG, MB}) ->
+          {max(R, MR), max(G, MG), max(B, MB)}
+        end,
+        {0, 0, 0},
+        Rounds
+      ),
+      R * G * B
+    end,
+    Games
+  ),
+  lists:sum(maps:values(Powers)).
+
 -ifdef(EUNIT).
 -include_lib("eunit/include/eunit.hrl").
 
@@ -56,6 +72,8 @@ example(p1) -> parse_input(input:lines("day2_a")).
 p1_test() ->
   ?assertEqual(8, p1(example(p1))).
 
+p2_test() ->
+  ?assertEqual(2286, p2(example(p1))).
 
 -endif.
 
