@@ -2,6 +2,7 @@
 -behavior(aoc).
 
 -export([input_type/0, p1/1, p2/1]).
+-export([next_number/2]).
 
 input_type() -> raw.
 
