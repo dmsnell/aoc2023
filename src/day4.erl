@@ -36,11 +36,12 @@ line(card_number, Input, _Card, _Wins, _Matches) ->
 
 line(wins, Input, Card, Wins, _Matches) ->
   {N, {At, Length}} = day3:next_number(Input, 0),
+  AllWins = [N | Wins],
   case binary:part(Input, At + Length, size(Input) - At - Length) of
     <<" | ", Rest/binary>> ->
-      line(mine, Rest, Card, [N | Wins], 0);
+      line(mine, Rest, Card, AllWins, 0);
     <<" ", Rest/binary>>   ->
-      line(wins, Rest, Card, [N | Wins], _Matches)
+      line(wins, Rest, Card, AllWins, _Matches)
   end;
 
 line(mine, Input, Card, Wins, Matches) ->
@@ -57,18 +58,23 @@ line(mine, Input, Card, Wins, Matches) ->
 
 
 p2(Input) ->
-  Lines = lines(Input, []),
-  Cards = maps:from_list([{C, M} || {C, M, _P} <- Lines]),
-  Stack = maps:keys(Cards),
-  tally(Cards, Stack, 0).
+  Cards  = lines(Input, []),
+  Stack  = lists:sort(fun ({A,_, _}, {B, _, _}) -> A =< B end, Cards),
+  Copies = maps:from_list([{C, 1} || {C, _, _} <- Stack]),
+  tally(Stack, Copies, 0).
 
-tally(_Cards, [], Count) ->
+tally([], _Copies, Count) ->
   Count;
 
-tally(Cards, [Card | Stack], Count) ->
-  Matches = maps:get(Card, Cards),
-  Copies  = lists:seq(Card + 1, Card + Matches),
-  tally(Cards, Copies ++ Stack, Count + 1).
+tally([{Card, Matches, _} | Stack], Copies, Count) ->
+  CopiesOfThis = maps:get(Card, Copies),
+  Inc          = fun (V) -> V + CopiesOfThis end,
+  NewCopies    = lists:foldl(
+    fun (C, NewCopies) -> maps:update_with(C, Inc, NewCopies) end,
+    Copies,
+    lists:seq(Card + 1, Card + Matches)
+  ),
+  tally(Stack, NewCopies, Count + CopiesOfThis).
 
 -ifdef(EUNIT).
 -include_lib("eunit/include/eunit.hrl").
@@ -80,5 +86,9 @@ p1_test() ->
 
 p2_test() ->
   ?assertEqual(30, p2(example(p1))).
+
+answers_test() ->
+  ?assertEqual(21485, p1(input:raw("day4"))),
+  ?assertEqual(11024379, p2(input:raw("day4"))).
 
 -endif.
